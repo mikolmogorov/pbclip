@@ -1,3 +1,6 @@
+//(c) 2016 by Authors
+//Released under the BSD license (see LICENSE file)
+
 #include "kmer.h"
 #include "sequence_container.h"
 #include <iostream>
@@ -13,7 +16,10 @@ int main(int argc, char** argv)
 
 	if (argc < 2)
 	{
-		std::cerr << "Usage: pbclip reads_1 [reads_2 ...]\n";
+		std::cerr << "Usage: pbclip reads_file_1 [reads_file_2 ...]\n\n"
+			<< "Fix PacBio reads that were not properly split into subreads.\n"
+			<< "Input reads should be in fasta/q format, could be gzipped.\n"
+			<< "Outputs fasta to stdout.";
 		return 1;
 	}
 
@@ -140,7 +146,8 @@ int main(int argc, char** argv)
 
 	std::cerr << "Good: " << numGood << " chopped: " << numChopped
 		<< " bad: " << numComplex << std::endl;
-	SequenceContainer::writeFasta(outputSequences, "");
+	SequenceContainer::writeFasta(outputSequences, "", 
+								  /*only pos strand*/ true);
 
 	return 0;
 }
