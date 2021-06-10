@@ -21,6 +21,11 @@ const FastaRecord::Id FastaRecord::ID_NONE =
 
 bool SequenceContainer::isFasta(const std::string& fileName)
 {
+	if (fileName.size() < 3) 
+	{
+		throw ParseException("Can't identify input file type");
+	}
+
 	std::string withoutGz = fileName;
 	if (fileName.substr(fileName.size() - 3) == ".gz")
 	{
