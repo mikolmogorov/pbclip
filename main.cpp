@@ -5,11 +5,16 @@
 #include <map>
 
 
+
+
 int main(int argc, char** argv)
 {
-	const int32_t WINDOW = 100;
+	//const int32_t WINDOW = 100;
 	const int32_t MIN_PART = 500;
 	const int32_t MAX_CUTS = 2;
+	const int MIN_SUSPICIOUS_KMERS = 10;
+	const int LINKAGE_DIST = 50;
+	const int MAX_CHOP_RANGE = 100;
 
 	if (argc < 2)
 	{
@@ -44,7 +49,6 @@ int main(int argc, char** argv)
 	std::cerr << "Sequences loaded\n";
 
 	std::unordered_map<Kmer, size_t> kmerConunter;
-	//std::unordered_set<Kmer> usedKmers;
 	std::vector<int32_t> splitPos;
 	std::map<int32_t, int32_t> hist;
 	int numGood = 0;
@@ -57,9 +61,7 @@ int main(int argc, char** argv)
 
 		kmerConunter.clear();
 		splitPos.clear();
-		//usedKmers.clear();
 		hist.clear();
-		size_t duplicates = 0;
 		for (const auto& kmerPos : IterKmers(seq.sequence))
 		{
 			Kmer stdKmer(kmerPos.kmer);
@@ -67,52 +69,53 @@ int main(int argc, char** argv)
 
 			if (kmerConunter.count(kmerPos.kmer))
 			{
-				++duplicates;
-				//if (!usedKmers.count(stdKmer))
-				{
-					splitPos.push_back((kmerPos.position + 
-									    kmerConunter[kmerPos.kmer]) / 2);
-				}
-				//usedKmers.insert(stdKmer);
+				splitPos.push_back((kmerPos.position + 
+									kmerConunter[kmerPos.kmer]) / 2);
 			}
 
 			kmerConunter[kmerPos.kmer.reverseComplement()] = kmerPos.position;
 		}
 
-		for (int32_t x: splitPos) ++hist[x / WINDOW];
+		std::sort(splitPos.begin(), splitPos.end());
 
-		//std::cerr << seq.description << " " << seq.sequence.length() 
-		//	<< " " << duplicates << std::endl;
-
-		/*for (auto x: splitPos)
+		/*std::cerr << seq.description << " " << seq.sequence.length() 
+			<< " " << splitPos.size() << std::endl;
+		for (auto x: splitPos)
 		{
 			std::cerr << x << " ";
 		}
 		std::cerr << std::endl;*/
 
+		splitPos.push_back(seq.sequence.length() - 1);
 		std::vector<int32_t> chopPoints;
-		for (auto window : hist)
-		{
-			if (window.second > 25)
-			{
-				int32_t pos = window.first * WINDOW;
-				int32_t prevChop = chopPoints.empty() ? 0 : chopPoints.back();
-				if (pos > prevChop + MIN_PART && 
-					pos < (int)seq.sequence.length() - MIN_PART)
-				{
-					chopPoints.push_back(pos);
-					//std::cerr << window.second << std::endl;
-				}
+		int lastEnd = 0;
+		int lastStart = 0;
+		int clustSize = 0;
+		int prevChop = 0;
 
-				//std::cerr << "Anomaly: " << window.first * WINDOW 
-				//	<< " " << window.second << std::endl;
+		for (int32_t pos : splitPos)
+		{
+			if (pos - lastEnd < LINKAGE_DIST)
+			{
+				++clustSize;
+				lastEnd = pos;
+			}
+			else
+			{
+				int32_t chopPos = (lastEnd + lastStart) / 2;
+				if (clustSize >= MIN_SUSPICIOUS_KMERS &&
+					chopPos - prevChop > MIN_PART &&
+					lastEnd - lastStart < MAX_CHOP_RANGE)
+				{
+					chopPoints.push_back(chopPos);
+					prevChop = chopPos;
+					//std::cerr << "Chop: " << chopPos << std::endl;
+				}
+				lastStart = pos;
+				lastEnd = pos;
+				clustSize = 1;
 			}
 		}
-
-		/*for (auto x: chopPoints)
-		{
-			std::cerr << "Chop: "<< x << std::endl;
-		}*/
 
 		if (chopPoints.empty()) 
 		{
